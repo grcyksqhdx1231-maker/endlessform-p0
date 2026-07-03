@@ -344,6 +344,7 @@ function prepareReplay(): void {
 
 async function boot(): Promise<void> {
   const fastInitial3d = shouldUseFastInitialModel();
+  const skipInitialParticleAssembly = (fastInitial3d || reducedMotion) && !debugEnabled && !captureEnabled;
   const bootModelUrl = initialModelUrl();
   const chair = await loadChair(bootModelUrl, chairGroup);
   currentChairRoot = chair.root;
@@ -389,9 +390,12 @@ async function boot(): Promise<void> {
     onChange: writeRuntimeSnapshot,
   });
 
-  const particleQuality = selectParticleQuality(reducedMotion);
-  particleAssembly = createParticleAssembly(chairGroup, particleQuality);
-  loadingTimeline = createLoadingTimeline(chair.root, particleAssembly, writeRuntimeSnapshot, enableInteraction);
+  if (!skipInitialParticleAssembly) {
+    const particleQuality = selectParticleQuality(reducedMotion);
+    particleAssembly = createParticleAssembly(chairGroup, particleQuality);
+    loadingTimeline = createLoadingTimeline(chair.root, particleAssembly, writeRuntimeSnapshot, enableInteraction);
+  }
+
   prototypeShell = createPrototypeShell({
     root: document.querySelector<HTMLElement>(".p0-page")!,
     overlay,
@@ -408,23 +412,27 @@ async function boot(): Promise<void> {
   const captureAt = captureTime();
   const stateIndex = captureStateIndex();
 
-  if (stateIndex !== null) {
+  if (skipInitialParticleAssembly) {
+    p0State.setAssemblyComplete(true);
+    p0State.setInteractionEnabled(true);
+    enableInteraction();
+  } else if (stateIndex !== null && loadingTimeline) {
     loadingTimeline.completeImmediately();
     rotationController.setAngle(stateIndex * STATE_STEP_RADIANS, false);
     p0State.setAssemblyComplete(true);
     p0State.setInteractionEnabled(false);
-  } else if (reducedMotion) {
+  } else if (reducedMotion && loadingTimeline) {
     loadingTimeline.completeImmediately();
-  } else if (captureAt !== null) {
+  } else if (captureAt !== null && loadingTimeline) {
     if (captureAt >= 2.1) {
       loadingTimeline.completeImmediately();
     } else {
       p0State.setInteractionEnabled(false);
       loadingTimeline.seek(captureAt);
     }
-  } else if (fastInitial3d) {
+  } else if (fastInitial3d && loadingTimeline) {
     loadingTimeline.completeImmediately();
-  } else {
+  } else if (loadingTimeline) {
     prepareReplay();
     loadingTimeline.replay();
   }
@@ -486,14 +494,16 @@ async function boot(): Promise<void> {
       },
     });
 
-    disposeParticleDebug = createParticleDebugPanel({
-      particleAssembly,
-      loadingTimeline,
-      onChange: () => {
-        render();
-        writeRuntimeSnapshot();
-      },
-    });
+    if (particleAssembly && loadingTimeline) {
+      disposeParticleDebug = createParticleDebugPanel({
+        particleAssembly,
+        loadingTimeline,
+        onChange: () => {
+          render();
+          writeRuntimeSnapshot();
+        },
+      });
+    }
 
     disposePhase3Debug = createPhase3DebugPanel({
       state: p0State,
