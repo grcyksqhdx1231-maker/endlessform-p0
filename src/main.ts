@@ -343,6 +343,7 @@ function prepareReplay(): void {
 }
 
 async function boot(): Promise<void> {
+  const fastInitial3d = shouldUseFastInitialModel();
   const bootModelUrl = initialModelUrl();
   const chair = await loadChair(bootModelUrl, chairGroup);
   currentChairRoot = chair.root;
@@ -403,7 +404,6 @@ async function boot(): Promise<void> {
 
   resize();
   overlay.showChrome();
-  hideBootLoading();
 
   const captureAt = captureTime();
   const stateIndex = captureStateIndex();
@@ -422,11 +422,14 @@ async function boot(): Promise<void> {
       p0State.setInteractionEnabled(false);
       loadingTimeline.seek(captureAt);
     }
+  } else if (fastInitial3d) {
+    loadingTimeline.completeImmediately();
   } else {
     prepareReplay();
     loadingTimeline.replay();
   }
 
+  hideBootLoading();
   writeRuntimeSnapshot();
 
   Object.assign(window, {
