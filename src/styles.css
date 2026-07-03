@@ -114,6 +114,36 @@ body {
   outline: none;
 }
 
+.boot-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #292929;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+}
+
+.boot-loading strong {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.boot-loading span {
+  color: rgba(41, 41, 41, 0.58);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.boot-loading.is-hidden {
+  opacity: 0;
+}
+
 .webgl-error {
   position: absolute;
   inset: 0;

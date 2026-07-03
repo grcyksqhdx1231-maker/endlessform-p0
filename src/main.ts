@@ -27,6 +27,7 @@ import { createPhase3DebugPanel } from "./p0/createPhase3DebugPanel";
 const canvas = document.querySelector<HTMLCanvasElement>("#p0-canvas");
 const errorNode = document.querySelector<HTMLElement>("#webgl-error");
 const appRoot = document.querySelector<HTMLElement>("#app");
+const bootLoading = document.querySelector<HTMLElement>("#boot-loading");
 
 if (!canvas) {
   throw new Error("Missing #p0-canvas element.");
@@ -121,6 +122,20 @@ function requestedLightingPresetName(): LightingPresetName {
 
 function requestedMaterialMode(): "original" | "neutral" {
   return urlParams.get("material") === "neutral" ? "neutral" : "original";
+}
+
+function shouldUseFastInitialModel(): boolean {
+  return window.matchMedia("(max-width: 520px)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function initialModelUrl(): string {
+  return shouldUseFastInitialModel() ? "/models/chair-model-10.glb" : "/models/p0-chair.glb";
+}
+
+function hideBootLoading(): void {
+  if (!bootLoading) return;
+  bootLoading.classList.add("is-hidden");
+  window.setTimeout(() => bootLoading.remove(), 260);
 }
 
 function resize(): void {
@@ -261,6 +276,7 @@ function handleVisibility(): void {
 
 function showError(error: unknown): void {
   console.error("Failed to load P0 chair model:", error);
+  hideBootLoading();
   if (errorNode) errorNode.hidden = false;
 }
 
@@ -327,9 +343,10 @@ function prepareReplay(): void {
 }
 
 async function boot(): Promise<void> {
-  const chair = await loadChair("/models/p0-chair.glb", chairGroup);
+  const bootModelUrl = initialModelUrl();
+  const chair = await loadChair(bootModelUrl, chairGroup);
   currentChairRoot = chair.root;
-  currentModelUrl = "/models/p0-chair.glb";
+  currentModelUrl = bootModelUrl;
   chairMaterialsSnapshot = chair.materials;
   materialDiagnostics = createMaterialDiagnostics(chair.root);
   interactiveMaterials = createInteractiveMaterials(chair.root, CHAIR_STATES[0].color);
@@ -386,6 +403,7 @@ async function boot(): Promise<void> {
 
   resize();
   overlay.showChrome();
+  hideBootLoading();
 
   const captureAt = captureTime();
   const stateIndex = captureStateIndex();

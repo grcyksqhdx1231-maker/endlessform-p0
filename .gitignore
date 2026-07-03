@@ -1,6 +1,7 @@
 node_modules/
 dist/
 release/
+github-pages-upload/
 .npm-cache/
 .edge-cdp-profile/
 .edge-profile/
