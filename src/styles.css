@@ -42,7 +42,16 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+#app.p0-page {
+  width: 100vw;
+  height: 100dvh;
+}
+
 .device-stage {
+  display: contents;
+}
+
+.device-shell {
   display: contents;
 }
 
@@ -66,6 +75,7 @@ body {
   }
 
   .device-shell {
+    display: block;
     position: relative;
     width: 417px;
     height: 876px;
