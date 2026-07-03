@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+.npm-cache/
+.edge-cdp-profile/
+.edge-profile/
+.edge-svg-profile/
+.edge-verify-profile/
+outputs/
+
+.DS_Store
+Thumbs.db
+*.log
