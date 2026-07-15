@@ -5,7 +5,6 @@ const interactiveSelector = [
   "textarea",
   "select",
   "[role='button']",
-  "[data-ui-interactive]",
   "[data-action]",
   "[data-nav]",
   ".bottom-nav",
@@ -30,6 +29,11 @@ style.textContent = `
   .prototype-ui .top-custom-button,
   .prototype-ui .action-rail button {
     pointer-events: auto !important;
+  }
+
+  .prototype-ui[data-app-stage="main"][data-cover-stage="feed"]:not([data-view]) [data-ui-interactive],
+  .prototype-ui[data-app-stage="main"][data-cover-stage="feed"][data-view="home"] [data-ui-interactive] {
+    touch-action: none !important;
   }
 
   .prototype-ui .prototype-topbar [data-action="home"] svg {
