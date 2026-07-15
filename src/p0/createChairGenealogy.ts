@@ -117,6 +117,8 @@ export function createChairGenealogy(
         scale: number;
       }
     | null = null;
+  let touchGestureActive = false;
+  let touchReleaseTimer = 0;
 
   const applyTransform = (): void => {
     viewport.setAttribute(
@@ -133,6 +135,23 @@ export function createChairGenealogy(
     if (!matrix) return { x: 0, y: 0 };
     const local = point.matrixTransform(matrix.inverse());
     return { x: local.x, y: local.y };
+  };
+
+  const preventNativeTouch = (event: Event): void => {
+    if (event.cancelable) event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const markTouchGestureActive = (): void => {
+    touchGestureActive = true;
+    window.clearTimeout(touchReleaseTimer);
+  };
+
+  const releaseTouchGestureSoon = (): void => {
+    window.clearTimeout(touchReleaseTimer);
+    touchReleaseTimer = window.setTimeout(() => {
+      touchGestureActive = false;
+    }, 90);
   };
 
   const animateTo = (target: TransformState, duration = 420): void => {
@@ -341,7 +360,25 @@ export function createChairGenealogy(
     };
   };
 
+  const createPinchStartFromPoints = (a: PointerInfo, b: PointerInfo): void => {
+    const midpoint = {
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    };
+    const distance = Math.hypot(a.x - b.x, a.y - b.y);
+
+    pinchStart = {
+      distance,
+      scale: state.scale,
+      worldX: (midpoint.x - state.x) / state.scale,
+      worldY: (midpoint.y - state.y) / state.scale,
+    };
+  };
+
   const handlePointerDown = (event: PointerEvent): void => {
+    if (touchGestureActive && event.pointerType === 'touch') return;
+    preventNativeTouch(event);
+    cancelAnimationFrame(animationFrame);
     stage.setPointerCapture(event.pointerId);
     const point = clientToSvg(event.clientX, event.clientY);
     pointers.set(event.pointerId, point);
@@ -356,7 +393,9 @@ export function createChairGenealogy(
   };
 
   const handlePointerMove = (event: PointerEvent): void => {
+    if (touchGestureActive && event.pointerType === 'touch') return;
     if (!pointers.has(event.pointerId)) return;
+    preventNativeTouch(event);
 
     const point = clientToSvg(event.clientX, event.clientY);
     pointers.set(event.pointerId, point);
@@ -398,6 +437,8 @@ export function createChairGenealogy(
   };
 
   const handlePointerEnd = (event: PointerEvent): void => {
+    if (touchGestureActive && event.pointerType === 'touch') return;
+    preventNativeTouch(event);
     pointers.delete(event.pointerId);
     if (stage.hasPointerCapture(event.pointerId)) {
       stage.releasePointerCapture(event.pointerId);
@@ -410,6 +451,101 @@ export function createChairGenealogy(
     } else {
       panStart = null;
       pinchStart = null;
+    }
+
+    window.setTimeout(() => {
+      dragMoved = false;
+    }, 0);
+  };
+
+  const handleTouchStart = (event: TouchEvent): void => {
+    if (!event.touches.length) return;
+    preventNativeTouch(event);
+    markTouchGestureActive();
+    cancelAnimationFrame(animationFrame);
+    pointers.clear();
+    dragMoved = false;
+
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const point = clientToSvg(touch.clientX, touch.clientY);
+      panStart = { pointer: point, state: { ...state } };
+      pinchStart = null;
+      return;
+    }
+
+    const first = event.touches[0];
+    const second = event.touches[1];
+    panStart = null;
+    createPinchStartFromPoints(
+      clientToSvg(first.clientX, first.clientY),
+      clientToSvg(second.clientX, second.clientY),
+    );
+  };
+
+  const handleTouchMove = (event: TouchEvent): void => {
+    if (!event.touches.length) return;
+    preventNativeTouch(event);
+    markTouchGestureActive();
+
+    if (event.touches.length === 1 && panStart) {
+      const touch = event.touches[0];
+      const point = clientToSvg(touch.clientX, touch.clientY);
+      const dx = point.x - panStart.pointer.x;
+      const dy = point.y - panStart.pointer.y;
+      if (Math.hypot(dx, dy) > 2) dragMoved = true;
+      state = {
+        ...panStart.state,
+        x: panStart.state.x + dx,
+        y: panStart.state.y + dy,
+      };
+      applyTransform();
+      return;
+    }
+
+    if (event.touches.length >= 2) {
+      const first = event.touches[0];
+      const second = event.touches[1];
+      const a = clientToSvg(first.clientX, first.clientY);
+      const b = clientToSvg(second.clientX, second.clientY);
+      if (!pinchStart) createPinchStartFromPoints(a, b);
+      if (!pinchStart) return;
+
+      dragMoved = true;
+      const midpoint = {
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+      };
+      const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      const nextScale = clamp(
+        pinchStart.scale * (distance / Math.max(1, pinchStart.distance)),
+        minScale,
+        maxScale,
+      );
+
+      state = {
+        scale: nextScale,
+        x: midpoint.x - pinchStart.worldX * nextScale,
+        y: midpoint.y - pinchStart.worldY * nextScale,
+      };
+      applyTransform();
+    }
+  };
+
+  const handleTouchEnd = (event: TouchEvent): void => {
+    preventNativeTouch(event);
+    pointers.clear();
+
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const point = clientToSvg(touch.clientX, touch.clientY);
+      panStart = { pointer: point, state: { ...state } };
+      pinchStart = null;
+      markTouchGestureActive();
+    } else {
+      panStart = null;
+      pinchStart = null;
+      releaseTouchGestureSoon();
     }
 
     window.setTimeout(() => {
@@ -469,10 +605,14 @@ export function createChairGenealogy(
   };
 
   stage.addEventListener('wheel', handleWheel, { passive: false });
-  stage.addEventListener('pointerdown', handlePointerDown);
-  stage.addEventListener('pointermove', handlePointerMove);
-  stage.addEventListener('pointerup', handlePointerEnd);
-  stage.addEventListener('pointercancel', handlePointerEnd);
+  stage.addEventListener('pointerdown', handlePointerDown, { passive: false });
+  stage.addEventListener('pointermove', handlePointerMove, { passive: false });
+  stage.addEventListener('pointerup', handlePointerEnd, { passive: false });
+  stage.addEventListener('pointercancel', handlePointerEnd, { passive: false });
+  stage.addEventListener('touchstart', handleTouchStart, { passive: false });
+  stage.addEventListener('touchmove', handleTouchMove, { passive: false });
+  stage.addEventListener('touchend', handleTouchEnd, { passive: false });
+  stage.addEventListener('touchcancel', handleTouchEnd, { passive: false });
   stage.addEventListener('click', handleStageClick);
   resetButton.addEventListener('click', reset);
   svg.addEventListener('dblclick', reset);
@@ -486,11 +626,16 @@ export function createChairGenealogy(
     destroy: (): void => {
       destroyed = true;
       cancelAnimationFrame(animationFrame);
+      window.clearTimeout(touchReleaseTimer);
       stage.removeEventListener('wheel', handleWheel);
       stage.removeEventListener('pointerdown', handlePointerDown);
       stage.removeEventListener('pointermove', handlePointerMove);
       stage.removeEventListener('pointerup', handlePointerEnd);
       stage.removeEventListener('pointercancel', handlePointerEnd);
+      stage.removeEventListener('touchstart', handleTouchStart);
+      stage.removeEventListener('touchmove', handleTouchMove);
+      stage.removeEventListener('touchend', handleTouchEnd);
+      stage.removeEventListener('touchcancel', handleTouchEnd);
       stage.removeEventListener('click', handleStageClick);
       resetButton.removeEventListener('click', reset);
       host.innerHTML = '';

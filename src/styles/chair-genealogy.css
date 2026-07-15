@@ -5,6 +5,10 @@
   color: #161a1d;
   background: #fff;
   isolation: isolate;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .chair-tree__stage {
@@ -14,7 +18,10 @@
   min-height: 540px;
   overflow: hidden;
   touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-user-drag: none;
   cursor: grab;
   background:
     radial-gradient(circle at 50% 48%, rgba(16, 20, 24, 0.018), transparent 42%),
@@ -30,6 +37,18 @@
   height: 100%;
   display: block;
   overflow: visible;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.chair-tree__svg * {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .chair-tree__svg .node,
