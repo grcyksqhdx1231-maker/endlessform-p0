@@ -8,6 +8,7 @@ github-pages-upload/
 .edge-svg-profile/
 .edge-verify-profile/
 outputs/
+captures/
 
 .DS_Store
 Thumbs.db
